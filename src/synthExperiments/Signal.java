@@ -292,10 +292,19 @@ public class Signal {
 	
 	@Override
 	public String toString() {
+		return toString(false);
+	}
+	
+	public String toString(boolean lineBreak)
+	{
 		StringBuilder sb = new StringBuilder();
 		
-		for(int i = 0; i < table.size(); i++)
-			sb.append(i + " " + table.get(i) + "\n");
+		if(lineBreak)
+			for(int i = 0; i < table.size(); i++)
+				sb.append(i + " " + table.get(i) + "\n");
+		else
+			for(int i = 0; i < table.size(); i++)
+				sb.append(table.get(i) + " ");
 		
 		return sb.toString();
 	}
@@ -303,54 +312,20 @@ public class Signal {
 	public static void main(String[] args) throws Exception
 	{
 		int sampleFreq = 8000;
-		int fftWindowSize = 512;
+		int fftWindowSize = 32;
 		
-		Signal carre440 = new SquareSynth(sampleFreq).generate(2, 440);
+		Signal _0hz = new SineSynth(8000).generate(1.0, 799.99);
 		
-		carre440.writeToWAVE("carre440.wav", SampleSize.S24BIT);
+		//System.out.println("Signal: ");
+		//System.out.println( _0hz.toString() );
 		
+		System.out.println("\n\nFFT: ");
+		System.out.println( _0hz.clone(fftWindowSize).fft().toString() );
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		Signal sine4375 = new SineSynth(sampleFreq).generate(2, 437.5);
-		Signal sineH2 = new SineSynth(sampleFreq).generate(2, 2*437.5);
-		
-		sine4375.writeToWAVE("sine4375.wav", SampleSize.S24BIT);
-		sine4375.add(sineH2);
-
-		//FFT
-		FileWriter fw = new FileWriter("FFTsine");
-		Signal sineTrimmed = sine4375.clone(fftWindowSize);
-		Signal sineFFT = sineTrimmed.fft();
-		fw.write( sineFFT.toString() );
-		fw.close();
-		
-		//iFFT
-		FileWriter fw2 = new FileWriter("IFFTsine");
-		Signal sineIFFT = sineFFT.iFFT();
-		fw2.write( sineIFFT.toString() );
-		fw2.close();
-		
-		//Filter
-		LinearFilter fl = new HighpassFilter(600, 64, 1.0, sampleFreq);
-		Signal filtered = fl.filter(sine4375);
-		
-		FileWriter fw3 = new FileWriter("filteredSignal");
-		fw3.write( filtered.toString() );
-		fw3.close();
-		
-		//FFT filtered
-		Signal trimmedFiltered = filtered.clone(fftWindowSize);
-		Signal filteredFFT = trimmedFiltered.fft();
-		
-		System.out.print( filteredFFT.toString() );
-		
+		/*
+		 * Symmetrical frequency: fe-f
+		 * Bucket of symmetrical frequency: floor( fe-f/fB )
+		 * Where fB (frequency per bucket) is: fe/fftWindowSize
+		 */
 	}
 }
