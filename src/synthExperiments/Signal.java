@@ -57,11 +57,41 @@ public class Signal {
 	 * Returns the bucket whose frequency is the closest to f. If one needs do know exactly
 	 * what is that frequency, use getBucketsFrequency() together with this function.
 	 * @param f The desired frequency
-	 * @return The bucket. -1 if negative frequency is provided. 
+	 * @return The bucket. -1 if negative frequency is provided or if calculated bucket falls out table size 
 	 */
-	public int getClosestFrequency(double f) {
+	public int getClosestBucket(double f) {
 		if(f < 0) return -1;
-		return (int)( f * size() / sampleRate );
+		int b =  (int)Math.floor( (double)f * size() / sampleRate ); //Round or floor?!
+		
+		return (b >= this.table.size()) ? -1 : b;
+	}
+	
+	public double getClosestFrequency(double f) {
+		return getBucketsFrequency( getClosestBucket(f) );
+	}
+	
+	protected int addBucket(int nBucket, double value) {
+		if(nBucket < 0 || nBucket >= this.table.size() ) return -1;
+		
+		this.table.set(nBucket, value);
+		
+		return 0;
+	}
+	
+	public double getSymmetricalFrequency(double f) {
+		if(f > this.sampleRate) return Double.NaN;
+		
+		return this.sampleRate - f;
+	}
+	
+	public int getSymmetricalBucket(double f) {
+		if(f < 0.0 || f >= sampleRate) return -1;
+		double sym = sampleRate - f;
+		return (int)Math.floor( sym / getFrequencyPerBucket() );
+	}
+	
+	public double getFrequencyPerBucket() {
+		return (double)sampleRate/table.size();
 	}
 	
 	//------------------------------------------------------------------------------------

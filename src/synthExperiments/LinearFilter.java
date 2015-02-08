@@ -1,49 +1,34 @@
 package synthExperiments;
 
-public abstract class LinearFilter extends Signal {
+import java.util.ArrayList;
+
+public class LinearFilter extends Signal {
 
 	/**
 	 * Filter's frequency response
 	 */
 	private Signal frequencyResponse;
 	
-	/**
-	 * All frequencies above/below this (inclusive) will be attenuated
-	 */
-	protected double cutoff;
-	
-	/**
-	 * Number of samples our filter will have
-	 */
-	protected int filterLength;
-	
-	/**
-	 * Signal's passing band gain
-	 */
-	protected double gain;
-	
 	//------------------------------------------------------------------------------------
 	//--------------------------- Constructors -------------------------------------------	
 	//------------------------------------------------------------------------------------
-	public LinearFilter(double cutoff, int filterLength, double gain, int sampleRate) {
+	public LinearFilter(int filterLength, int sampleRate) {
 		super.setSampleRate(sampleRate);
-		this.cutoff = cutoff;
-		this.filterLength = filterLength;
-		this.gain = gain;
-		this.frequencyResponse = null;
+		
+		ArrayList<Double> freqResp = new ArrayList<Double>(filterLength);
+		for(int i = 0; i < filterLength; i++) freqResp.add(0.0);
+		
+		this.frequencyResponse = new Signal(freqResp, sampleRate);
 	}
 	
 	public LinearFilter() {
-		this(-1.0, 0, 0, 8000);
+		this(32, 8000);
 	}
 	
 	//------------------------------------------------------------------------------------
 	//--------------------------- Access methods -----------------------------------------	
 	//------------------------------------------------------------------------------------
-	public double getCutoff() 		{ return this.cutoff; }
-	public int getFilterLength() 	{ return this.filterLength; }
-	public double getGain() 		{ return this.gain; }
-	
+
 	/**
 	 * A deep copy of the table with frequency response of the filter.
 	 * No references, so no hacking here ;)
@@ -52,36 +37,6 @@ public abstract class LinearFilter extends Signal {
 	public Signal getFreqResponse() {
 		if(this.frequencyResponse == null) return null;
 		return frequencyResponse.clone();
-	}
-	
-	/**
-	 * Sets gain. Requires recalculating all the filter (which is a quadratic operation).
-	 */
-	public void setGain(double gain) {
-		if(gain >= 0.0) this.gain = gain;
-		else return;
-		
-		this.calculateFilter();
-	}
-	
-	/**
-	 * Sets cutoff frequency. Requires recalculating all the filter (which is a quadratic operation).
-	 */
-	public void setCutoff(double cutoff) { 
-		if(cutoff >= 0.0) this.cutoff = cutoff; 
-		else return;
-		
-		this.calculateFilter();
-	}
-	
-	/**
-	 * Sets filter length. Requires recalculating all the filter (which is a quadratic operation).
-	 */
-	public void setFilterLength(int N) { 
-		if(N > 0) this.filterLength = N;
-		else return;
-		
-		this.calculateFilter();
 	}
 	
 	/**
@@ -96,6 +51,14 @@ public abstract class LinearFilter extends Signal {
 	//------------------------------------------------------------------------------------
 	//--------------------------- Operations ---------------------------------------------	
 	//------------------------------------------------------------------------------------
+	public void addBand(double lowCutoff, double highCutoff, double gain) {
+		for(double i = lowCutoff; i <= highCutoff; i += frequencyResponse.getFrequencyPerBucket()) {
+			frequencyResponse.addBucket( frequencyResponse.getClosestBucket(i), gain);
+			frequencyResponse.addBucket( frequencyResponse.getSymmetricalBucket(i), gain);
+		}
+		
+		this.calculateFilter();
+	}
 	
 	/**
 	 * Gets a signal as parameter and returns the filtered signal
@@ -103,45 +66,13 @@ public abstract class LinearFilter extends Signal {
 	 * @return The signal s after being filtered
 	 */
 	public Signal filter(Signal s) throws Exception {
-		if(cutoff < 0)
-			throw new Exception("Bad cutoff frequency ( < 0.0 )");
 		
-		if(frequencyResponse == null)
+		if(this.table.size() == 0)
 			this.calculateFilter();
 		
 		//Convolve impulse response with operand
 		return s.convolve(this);
 	}
-	
-	/**
-	 * Builds filter's frequency response based on parameters stored
-	 */
-	protected void calcFrequencyResponse() throws Exception {
-		
-		//Shannon's constraint
-		if(cutoff > this.sampleRate/2) {
-			cutoff = this.sampleRate/2; //Truncate
-			throw new Exception("Filter does not respect Shannon's constraint! Cutoff frequency is too high.");
-		}
-		
-		double[] freqTable = new double[this.filterLength];
-		double f = (double)sampleRate / filterLength;
-
-		for(int i = 0; i < filterLength; i++) {
-			double freq = f * i;
-			freqTable[i] = isFrequencyInRange(freq) ? gain : 0.0;
-		}
-		
-		frequencyResponse = new Signal(freqTable);
-	}
-	
-	/**
-	 * Code here must answer to the question: when is a certain frequency set to ZERO or set
-	 * to GAIN? For example, for a high pass filter: freq >= cutoff (&& freq <= sampleRate-cutoff).
-	 * @param freq The frequency we want to check.
-	 * @return TRUE or FALSE, whether this frequency is in filter range or not.
-	 */
-	protected abstract boolean isFrequencyInRange(double freq);
 	
 	/**
 	 * Calculates impulse response based on frequency response
@@ -196,14 +127,27 @@ public abstract class LinearFilter extends Signal {
 	 *  Recalculate filter
 	 */
 	protected void calculateFilter() {
-		try {
-			calcFrequencyResponse();
-		} catch(Exception e) {
-			System.err.println(e.getMessage());
-			return;
-		}
-		
 		calcImpulseResponse();
 		shiftHalves();
+	}
+	
+	public static void main(String[] args) throws Exception {
+		
+		LinearFilter lf = new LinearFilter(32, 8000);
+		lf.addBand(250, 500, 1.0);
+		
+		//System.out.println( "Filter coefficients: " + lf.toString() );
+		
+		Signal s = new SineSynth(8000).generate(1, 300);
+		s.add( new SineSynth(8000).generate(1.0, 1000) );
+		
+		System.out.println(lf.toString(true));
+		
+		//System.out.println(lf.filter(s).toString(true));
+		
+		
+		//System.out.println(s.toString(true));
+		
+		return;
 	}
 }
